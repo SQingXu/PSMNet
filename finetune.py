@@ -55,11 +55,11 @@ all_left_img, all_right_img, all_left_disp, test_left_img, test_right_img, test_
 
 TrainImgLoader = torch.utils.data.DataLoader(
          DA.myImageFloder(all_left_img,all_right_img,all_left_disp, True), 
-         batch_size= 12, shuffle= True, num_workers= 8, drop_last=False)
+         batch_size= 4, shuffle= True, num_workers= 8, drop_last=False)
 
 TestImgLoader = torch.utils.data.DataLoader(
          DA.myImageFloder(test_left_img,test_right_img,test_left_disp, False), 
-         batch_size= 8, shuffle= False, num_workers= 4, drop_last=False)
+         batch_size= 2, shuffle= False, num_workers= 4, drop_last=False)
 
 if args.model == 'stackhourglass':
     model = stackhourglass(args.maxdisp)
@@ -67,6 +67,21 @@ elif args.model == 'basic':
     model = basic(args.maxdisp)
 else:
     print('no model')
+
+print('Number of model parameters: {}'.format(sum([p.data.nelement() for p in model.parameters()])))
+print("now freeze all of the parameters")
+for param in model.parameters():
+    param.requires_grad = False
+print("end freezing parameters")
+print("unfreeze classif1")
+for param in model.classif1.parameters():
+    param.requires_grad = True
+print("unfreeze classif2")
+for param in model.classif2.parameters():
+    param.requires_grad = True
+print("unfreeze classif3")
+for param in model.classif3.parameters():
+    param.requires_grad = True
 
 if args.cuda:
     model = nn.DataParallel(model)
@@ -76,12 +91,16 @@ if args.loadmodel is not None:
     state_dict = torch.load(args.loadmodel)
     model.load_state_dict(state_dict['state_dict'])
 
-print('Number of model parameters: {}'.format(sum([p.data.nelement() for p in model.parameters()])))
+
+
 
 optimizer = optim.Adam(model.parameters(), lr=0.1, betas=(0.9, 0.999))
 
 def train(imgL,imgR,disp_L):
         model.train()
+        ##TODO
+        ##Freeze all the layer here 
+        ##
         imgL   = Variable(torch.FloatTensor(imgL))
         imgR   = Variable(torch.FloatTensor(imgR))   
         disp_L = Variable(torch.FloatTensor(disp_L))
@@ -123,9 +142,17 @@ def test(imgL,imgR,disp_true):
             output3 = model(imgL,imgR)
 
         pred_disp = output3.data.cpu()
+        pred_disp = pred_disp[:,0:pred_disp.shape[1],0:disp_true.shape[2]]
 
         #computing 3-px error#
-        true_disp = disp_true
+        true_disp = disp_true[:,0:pred_disp.shape[1],0:disp_true.shape[2]]
+        # print("ground_truth shape: ")
+        # print(true_disp.shape)
+        # print(true_disp.size)
+        # print("predict shape: ")
+        # print(pred_disp.shape)
+        # print(pred_disp.size)
+
         index = np.argwhere(true_disp>0)
         disp_true[index[0][:], index[1][:], index[2][:]] = np.abs(true_disp[index[0][:], index[1][:], index[2][:]]-pred_disp[index[0][:], index[1][:], index[2][:]])
         correct = (disp_true[index[0][:], index[1][:], index[2][:]] < 3)|(disp_true[index[0][:], index[1][:], index[2][:]] < true_disp[index[0][:], index[1][:], index[2][:]]*0.05)      

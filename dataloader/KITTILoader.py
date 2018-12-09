@@ -10,8 +10,16 @@ import preprocess
 
 IMG_EXTENSIONS = [
     '.jpg', '.JPG', '.jpeg', '.JPEG',
-    '.png', '.PNG', '.ppm', '.PPM', '.bmp', '.BMP',
+    '.png', '.PNG', '.ppm', '.PPM', '.bmp', '.BMP','exr'
 ]
+
+
+import OpenEXR as exr
+def readExr(path, width=1226, height=370): #input path, output width*height disparity np array
+    img = exr.InputFile(path)
+    disparity = np.frombuffer(img.channel('R'), dtype=np.float32).reshape(height, width)
+    return disparity
+
 
 def is_image_file(filename):
     return any(filename.endswith(extension) for extension in IMG_EXTENSIONS)
@@ -20,7 +28,8 @@ def default_loader(path):
     return Image.open(path).convert('RGB')
 
 def disparity_loader(path):
-    return Image.open(path)
+    #return Image.open(path)
+    return readExr(path)
 
 
 class myImageFloder(data.Dataset):
@@ -49,12 +58,16 @@ class myImageFloder(data.Dataset):
  
            x1 = random.randint(0, w - tw)
            y1 = random.randint(0, h - th)
-
+           #print("index %d: random x1 is %d, and random y1 is %d with weight: %d; height: %d"%(index,x1,y1,w,h))
            left_img = left_img.crop((x1, y1, x1 + tw, y1 + th))
            right_img = right_img.crop((x1, y1, x1 + tw, y1 + th))
 
-           dataL = np.ascontiguousarray(dataL,dtype=np.float32)/256
+           #dataL = np.ascontiguousarray(dataL,dtype=np.float32)/256
+           dataL = np.ascontiguousarray(dataL, dtype=np.float32)
+           #print(dataL.shape)
            dataL = dataL[y1:y1 + th, x1:x1 + tw]
+           #dataL = dataL[x1:x1 + tw, y1:y1 + th]
+           #print(dataL.shape)
 
            processed = preprocess.get_transform(augment=False)  
            left_img   = processed(left_img)
@@ -62,14 +75,19 @@ class myImageFloder(data.Dataset):
 
            return left_img, right_img, dataL
         else:
+           #print "else is also ran"
+           pre_w = 1226
+           pre_h = 370
            w, h = left_img.size
 
            left_img = left_img.crop((w-1232, h-368, w, h))
            right_img = right_img.crop((w-1232, h-368, w, h))
            w1, h1 = left_img.size
 
-           dataL = dataL.crop((w-1232, h-368, w, h))
-           dataL = np.ascontiguousarray(dataL,dtype=np.float32)/256
+           #dataL = dataL.crop((w-1232, h-368, w, h))
+           dataL = dataL[h-pre_h:h-pre_h+h, w-pre_w:w-pre_w+w]
+           #dataL = np.ascontiguousarray(dataL,dtype=np.float32)/256
+           dataL = np.ascontiguousarray(dataL, dtype=np.float32)
 
            processed = preprocess.get_transform(augment=False)  
            left_img       = processed(left_img)

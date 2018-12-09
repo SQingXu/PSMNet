@@ -97,8 +97,13 @@ def main():
        imgR = np.reshape(imgR,[1,3,imgR.shape[1],imgR.shape[2]])
 
        # pad to (384, 1248)
-       top_pad = 384-imgL.shape[2]
-       left_pad = 1248-imgL.shape[3]
+       # you can not pad to original resolution
+       height = 384
+       width = 1248
+       #height = 1110
+       #width = 1282
+       top_pad = height-imgL.shape[2]
+       left_pad = width-imgL.shape[3]
        imgL = np.lib.pad(imgL,((0,0),(0,0),(top_pad,0),(0,left_pad)),mode='constant',constant_values=0)
        imgR = np.lib.pad(imgR,((0,0),(0,0),(top_pad,0),(0,left_pad)),mode='constant',constant_values=0)
 
@@ -109,7 +114,10 @@ def main():
        top_pad   = 384-imgL_o.shape[0]
        left_pad  = 1248-imgL_o.shape[1]
        img = pred_disp[top_pad:,:-left_pad]
-       skimage.io.imsave(test_left_img[inx].split('/')[-1],(img*256).astype('uint16'))
+       print(test_left_img[inx].split('/')[-1])
+       #predict_folder = "MB_test/"
+       predict_folder = "KITTI2012_test_pretrained_2015/"
+       skimage.io.imsave(predict_folder+test_left_img[inx].split('/')[-1],(img*256).astype('uint16'))
 
 if __name__ == '__main__':
    main()
